@@ -16,9 +16,8 @@ import { useEffect, useRef } from "react";
 import type { Incident } from "./api";
 import type { Candle } from "./coins";
 import { TYPE_LABEL } from "./format";
+import { chartPalette, useTheme } from "./theme";
 
-const COLORS = { up: "#3cc98e", down: "#ff6363", grid: "#1b2027", text: "#8d949e", other: "#7aa2ff" };
-const SEVERITY = { info: "#7aa2ff", warning: "#f2b441", critical: "#ff6363" } as const;
 
 interface Props {
   candles: Candle[];
@@ -35,6 +34,7 @@ const localTime = (t: Time) =>
  *  and incident markers. Built on TradingView's lightweight-charts. */
 export function CandleChart({ candles, other, otherLabel, incidents, stablecoin }: Props) {
   const box = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
   const chart = useRef<IChartApi | null>(null);
   const series = useRef<{
     candles: ISeriesApi<"Candlestick">;
@@ -45,6 +45,7 @@ export function CandleChart({ candles, other, otherLabel, incidents, stablecoin 
 
   useEffect(() => {
     if (!box.current) return;
+    const COLORS = chartPalette();
     const c = createChart(box.current, {
       autoSize: true,
       layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: COLORS.text, fontSize: 11 },
@@ -63,7 +64,7 @@ export function CandleChart({ candles, other, otherLabel, incidents, stablecoin 
       priceFormat: { type: "price", precision: stablecoin ? 5 : 2, minMove: stablecoin ? 0.00001 : 0.01 },
     });
     const otherSeries = c.addSeries(LineSeries, {
-      color: COLORS.other, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: true,
+      color: COLORS.info, lineWidth: 1, lineStyle: 2, priceLineVisible: false, lastValueVisible: true,
       crosshairMarkerVisible: false, title: otherLabel,
     });
     const volume = c.addSeries(HistogramSeries, {
@@ -73,7 +74,7 @@ export function CandleChart({ candles, other, otherLabel, incidents, stablecoin 
     candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.22 } });
     if (stablecoin) {
       for (const price of [0.995, 1.005]) {
-        candleSeries.createPriceLine({ price, color: "#f2b44188", lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: "±0.5 %" });
+        candleSeries.createPriceLine({ price, color: `${COLORS.warning}88`, lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: "±0.5 %" });
       }
     }
     chart.current = c;
@@ -83,15 +84,16 @@ export function CandleChart({ candles, other, otherLabel, incidents, stablecoin 
       chart.current = null;
       series.current = null;
     };
-  }, [stablecoin, otherLabel]);
+  }, [stablecoin, otherLabel, theme]);  // a theme change rebuilds the chart in the new colours
 
   useEffect(() => {
     const s = series.current;
     if (!s) return;
+    const P = chartPalette();
     const t = (time: number) => time as UTCTimestamp;
     s.candles.setData(candles.map((c) => ({ time: t(c.time), open: c.open, high: c.high, low: c.low, close: c.close })));
     s.volume.setData(candles.map((c) => ({
-      time: t(c.time), value: c.volume, color: c.close >= c.open ? "#3cc98e40" : "#ff636340",
+      time: t(c.time), value: c.volume, color: c.close >= c.open ? `${P.up}40` : `${P.down}40`,
     })));
     s.other.setData(other.map((c) => ({ time: t(c.time), value: c.close })));
     const first = candles[0]?.time ?? 0;
@@ -101,10 +103,10 @@ export function CandleChart({ candles, other, otherLabel, incidents, stablecoin 
       .sort((a, b) => a.time - b.time)
       .map(({ inc, time }) => ({
         time: t(time), position: "aboveBar", shape: "arrowDown",
-        color: SEVERITY[inc.severity], text: TYPE_LABEL[inc.type] ?? inc.type,
+        color: P[inc.severity], text: TYPE_LABEL[inc.type] ?? inc.type,
       }));
     s.markers.setMarkers(markers);
-  }, [candles, other, incidents]);
+  }, [candles, other, incidents, theme]);
 
   return <div className="candle-chart" ref={box} role="img" aria-label="One-minute candle chart" />;
 }

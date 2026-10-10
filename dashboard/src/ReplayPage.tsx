@@ -10,6 +10,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { chartPalette, useTheme } from "./theme";
 
 interface Change {
   id: string;
@@ -28,7 +29,7 @@ interface ReplayData {
 // What happened in the world, for context (UTC).
 const WORLD = [
   { time: Date.UTC(2023, 2, 10, 16, 0) / 1000, text: "Silicon Valley Bank is closed by regulators (Friday)." },
-  { time: Date.UTC(2023, 2, 11, 3, 0) / 1000, text: "Circle says $3.3B of USDC's reserves are held at SVB." },
+  { time: Date.UTC(2023, 2, 11, 3, 9) / 1000, text: "Circle confirms $3.3B of USDC's reserves are held at SVB." },
   { time: Date.UTC(2023, 2, 12, 22, 15) / 1000, text: "US authorities announce all SVB deposits are protected (Sunday evening)." },
   { time: Date.UTC(2023, 2, 13, 13, 0) / 1000, text: "Banks reopen; USDC climbs back to $1 (Monday)." },
 ];
@@ -36,7 +37,6 @@ const SPEEDS = [
   { label: "1 h/s", secondsPerTick: 3600 / 10 },
   { label: "6 h/s", secondsPerTick: 21600 / 10 },
 ];
-const COLOR = { warning: "#f2b441", critical: "#ff6363", info: "#7aa2ff" } as const;
 const fmt = (t: number) =>
   new Date(t * 1000).toLocaleString("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " UTC";
 
@@ -46,6 +46,7 @@ export function ReplayPage() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(0);
   const box = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
   const chart = useRef<{ api: IChartApi; series: ISeriesApi<"Candlestick">; markers: ISeriesMarkersPluginApi<Time> } | null>(null);
 
   useEffect(() => {
@@ -60,26 +61,27 @@ export function ReplayPage() {
 
   useEffect(() => {
     if (!box.current || !data) return;
+    const P = chartPalette();
     const api = createChart(box.current, {
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#8d949e", fontSize: 11 },
-      grid: { vertLines: { color: "#1b2027" }, horzLines: { color: "#1b2027" } },
-      rightPriceScale: { borderColor: "#1b2027" },
-      timeScale: { borderColor: "#1b2027", timeVisible: true, secondsVisible: false },
+      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: P.text, fontSize: 11 },
+      grid: { vertLines: { color: P.grid }, horzLines: { color: P.grid } },
+      rightPriceScale: { borderColor: P.grid },
+      timeScale: { borderColor: P.grid, timeVisible: true, secondsVisible: false },
       localization: { timeFormatter: (t: Time) => fmt(t as number) },
     });
     const series = api.addSeries(CandlestickSeries, {
-      upColor: "#3cc98e", downColor: "#ff6363", borderVisible: false, wickUpColor: "#3cc98e", wickDownColor: "#ff6363",
+      upColor: P.up, downColor: P.down, borderVisible: false, wickUpColor: P.up, wickDownColor: P.down,
       priceFormat: { type: "price", precision: 4, minMove: 0.0001 },
     });
-    series.createPriceLine({ price: 0.995, color: "#f2b44199", lineWidth: 1, lineStyle: 2, title: "warning −0.5 %" });
-    series.createPriceLine({ price: 0.98, color: "#ff636399", lineWidth: 1, lineStyle: 2, title: "critical −2 %" });
+    series.createPriceLine({ price: 0.995, color: `${P.warning}99`, lineWidth: 1, lineStyle: 2, title: "warning −0.5 %" });
+    series.createPriceLine({ price: 0.98, color: `${P.critical}99`, lineWidth: 1, lineStyle: 2, title: "critical −2 %" });
     chart.current = { api, series, markers: createSeriesMarkers(series, []) };
     return () => {
       api.remove();
       chart.current = null;
     };
-  }, [data]);
+  }, [data, theme]);
 
   // Draw everything up to the cursor (15-minute candles keep three days readable).
   const visible = useMemo(() => {
@@ -102,15 +104,16 @@ export function ReplayPage() {
   useEffect(() => {
     const c = chart.current;
     if (!c) return;
+    const P = chartPalette();
     c.series.setData(visible);
     c.markers.setMarkers(seen.map((ch) => ({
       time: (ch.time - (ch.time % 900)) as UTCTimestamp,
       position: ch.state === "resolved" ? "belowBar" : "aboveBar",
       shape: ch.state === "resolved" ? "circle" : "arrowDown",
-      color: ch.state === "resolved" ? "#3cc98e" : COLOR[ch.severity],
+      color: ch.state === "resolved" ? P.up : P[ch.severity],
       text: ch.state === "resolved" ? "resolved" : ch.severity,
     })));
-  }, [visible, seen]);
+  }, [visible, seen, theme]);
 
   useEffect(() => {
     if (!playing || !data) return;
