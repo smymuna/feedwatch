@@ -24,7 +24,7 @@ flowchart LR
 | `detect` | `market.events` | `feed.incidents`, `feed.health` | in memory, rebuilt from the log on start |
 | `metrics` | `market.events` | `market.metrics.1m` | RocksDB + Kafka changelog (Quix Streams) |
 | `store` | incidents, health, metrics | PostgreSQL / TimescaleDB | the database |
-| `api` | PostgreSQL | HTTP: REST + Server-Sent Events, serves the dashboard | none |
+| `api` | PostgreSQL, and `market.events` for the coin pages | HTTP: REST + Server-Sent Events, serves the dashboard | a few minutes of trades per coin, in memory |
 
 ## One event stream
 
@@ -85,6 +85,22 @@ Its state covers minutes, not days, so instead of checkpointing it the detector 
 from the log ([ADR 0003](adr/0003-detector-state-from-the-log.md)): on start it rewinds
 each partition 15 minutes before its committed offset and replays that span silently, then
 publishes as normal. No incident is lost or duplicated by a restart.
+
+## Coin pages: history plus live
+
+A coin page needs two things at different speeds:
+
+- **Finished one-minute candles**, from `metrics_1m` in TimescaleDB (written by the metrics
+  job about a minute after each minute ends).
+- **The current minute and every trade as it happens.** The API follows `market.events`
+  itself (`api/live.py`): a background consumer, in its own consumer group so every API
+  instance sees every trade, starts three minutes back and keeps each coin's latest trades
+  and forming candles in memory. `/api/coins/{symbol}/stream` pushes them to the browser
+  twice a second.
+
+The browser merges the two: stored minutes win, live candles fill in the newest minutes.
+So the chart has history and still updates trade by trade, without the API writing
+anything.
 
 ## Scaling
 

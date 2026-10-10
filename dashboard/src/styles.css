@@ -103,6 +103,68 @@ tbody th, .num, .bps { white-space: nowrap; }
 .empty { color: var(--ink-3); padding: 3rem 0; text-align: center; }
 .foot { margin-top: 1.5rem; color: var(--ink-3); font-size: .78rem; }
 
+
+/* links, helpers */
+a { color: inherit; }
+.home { text-decoration: none; }
+tbody th a { text-decoration: none; border-bottom: 1px dotted var(--ink-3); }
+tbody th a:hover { color: var(--info); border-color: var(--info); }
+.cap { text-transform: capitalize; }
+.ok-text { color: var(--ok); }
+.crit-text { color: var(--critical); }
+.warn { color: var(--warning); }
+
+/* overview: coin cards */
+.coins { grid-column: span 12; }
+.coin-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .6rem; }
+.coin-card { display: grid; gap: .3rem; padding: .8rem .9rem; background: var(--raised); border: 1px solid var(--line); border-radius: 10px; text-decoration: none; transition: border-color .15s ease, transform .15s cubic-bezier(.23, 1, .32, 1), background-color .15s ease; }
+.coin-card:hover { border-color: #3a4250; background: #1b2028; transform: translateY(-1px); }
+.coin-card:active { transform: scale(.98); }
+.coin-card-top { display: flex; align-items: baseline; gap: .45rem; }
+.coin-card-top .dot { margin-left: auto; align-self: center; }
+.coin-price { font-size: 1.15rem; font-weight: 600; }
+.coin-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.spark { width: 64px; height: 22px; flex: none; }
+
+/* coin page */
+.back { display: inline-block; margin-bottom: .9rem; color: var(--ink-2); text-decoration: none; font-size: .9rem; }
+.back:hover { color: var(--ink); }
+.coin-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.coin-title { font-size: 2rem; font-weight: 650; letter-spacing: -.02em; }
+.coin-title span { font-size: 1.1rem; font-weight: 400; color: var(--ink-2); margin-left: .35rem; }
+.price-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.price-card { display: grid; gap: .15rem; padding: .85rem 1rem; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.price-card .big { font-size: 1.6rem; font-weight: 600; line-height: 1.2; transition: color .4s ease; }
+.flash-up { color: var(--ok); }
+.flash-down { color: var(--critical); }
+.coin-grid { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); gap: 1rem; margin-bottom: 1rem; }
+.coin-grid.lower { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.coin-page h3 { font-size: .95rem; font-weight: 600; margin-bottom: .8rem; }
+.coin-page h3 small { font-weight: 400; font-size: .78rem; margin-left: .4rem; }
+.chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; flex-wrap: wrap; }
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
+.seg button { border: 0; background: none; color: var(--ink-2); font: 500 .8rem system-ui, sans-serif; padding: .3rem .8rem; border-radius: 999px; cursor: pointer; text-transform: capitalize; }
+.seg button[aria-pressed="true"] { background: #2a313c; color: var(--ink); }
+.candle-chart { height: 380px; width: 100%; }
+.legend { margin-top: .5rem; }
+.other-key { color: var(--info); }
+.trades-panel { display: flex; flex-direction: column; }
+.trade-list { list-style: none; display: grid; gap: 1px; max-height: 430px; overflow-y: auto; font-size: .82rem; }
+.trade-list li { display: grid; grid-template-columns: 4.8rem 4.4rem 1fr auto; gap: .5rem; padding: .3rem .4rem; border-radius: 6px; animation: rowin .35s cubic-bezier(.23, 1, .32, 1); }
+.trade-list li:nth-child(odd) { background: #151920; }
+.side-buy { color: var(--ok); }
+.side-sell { color: var(--critical); }
+@keyframes rowin { from { background: rgba(122, 162, 255, .18); } }
+
+@media (max-width: 900px) {
+  .coin-grid, .coin-grid.lower { grid-template-columns: 1fr; }
+  .candle-chart { height: 300px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trade-list li { animation: none; }
+  .coin-card { transition: none; }
+}
+
 @media (max-width: 900px) {
   .pegs, .agree { grid-column: span 12; }
   .feed-cards { grid-template-columns: 1fr; }

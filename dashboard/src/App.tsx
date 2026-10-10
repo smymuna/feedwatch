@@ -1,5 +1,27 @@
+import { useEffect, useState } from "react";
 import { type Feed, type Incident, type SymbolHealth, useIncidents, useNow, useSnapshot } from "./api";
-import { TYPE_LABEL, ago, duration, gaugePosition, pct, pegLevel, price, rate } from "./format";
+import { CoinPage } from "./CoinPage";
+import { useCoins } from "./coins";
+import { CoinCards, IncidentList } from "./components";
+import { ago, gaugePosition, pct, pegLevel, price, rate } from "./format";
+
+/** Tiny hash router: #/ is the overview, #/coin/BTC-USD a coin page. */
+function useRoute(): string | null {
+  const read = () => {
+    const m = window.location.hash.match(/^#\/coin\/([A-Z0-9]+-[A-Z]+)$/);
+    return m ? m[1] : null;
+  };
+  const [coin, setCoin] = useState(read);
+  useEffect(() => {
+    const on = () => {
+      setCoin(read());
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
+  return coin;
+}
 
 const STABLES = ["USDT", "USDC", "DAI", "PYUSD", "USDS"];
 const SOURCES = ["coinbase", "kraken"];
@@ -16,12 +38,17 @@ export default function App() {
   const open = snapshot?.open_incidents ?? [];
   const critical = open.filter((i) => i.severity === "critical").length;
   const stale = state === "live" && now - receivedAt > 5000;
+  const coin = useRoute();
+  const coins = useCoins();
+  useEffect(() => {
+    document.title = coin ? `${coin} · FeedWatch` : "FeedWatch · market data quality";
+  }, [coin]);
 
   return (
     <div className="app">
       <header className="top">
         <div>
-          <h1>FeedWatch</h1>
+          <h1><a href="#/" className="home">FeedWatch</a></h1>
           <p className="sub">Live data quality for crypto market data feeds · Coinbase and Kraken</p>
         </div>
         <div className="status-group">
@@ -32,10 +59,17 @@ export default function App() {
         </div>
       </header>
 
-      {!snapshot ? (
+      {coin ? (
+        <CoinPage symbol={coin} now={now} />
+      ) : !snapshot ? (
         <p className="empty">Waiting for the first snapshot from the API…</p>
       ) : (
         <main className="grid">
+          <section className="panel coins" aria-labelledby="coins-h">
+            <h2 id="coins-h">Coins <small>live price, last hour · click a coin for its live chart and trades</small></h2>
+            <CoinCards coins={coins} />
+          </section>
+
           <section className="panel feeds" aria-labelledby="feeds-h">
             <h2 id="feeds-h">Feeds</h2>
             <div className="feed-cards">
@@ -119,7 +153,7 @@ function PegBoard({ symbols, open }: { symbols: SymbolHealth[]; open: Incident[]
           const hasData = symbols.some((s) => s.symbol === sym && s.peg_dev_pct !== null);
           return (
             <tr key={coin}>
-              <th scope="row">{coin}</th>
+              <th scope="row"><a href={`#/coin/${sym}`}>{coin}</a></th>
               {SOURCES.map((src) => {
                 const row = symbols.find((s) => s.symbol === sym && s.source === src);
                 const listed = LISTED[src]?.includes(coin);
@@ -179,7 +213,7 @@ function Agreement({ symbols }: { symbols: SymbolHealth[] }) {
           const level = bps === null ? "none" : bps > 3 * limit ? "critical" : bps > limit ? "warning" : "ok";
           return (
             <tr key={sym}>
-              <th scope="row">{sym}</th>
+              <th scope="row"><a href={`#/coin/${sym}`}>{sym}</a></th>
               {rows.map((r, i) => <td key={SOURCES[i]} className="num">{price(r?.last_price ?? null)}</td>)}
               <td>
                 {bps === null ? (
@@ -196,33 +230,5 @@ function Agreement({ symbols }: { symbols: SymbolHealth[] }) {
         })}
       </tbody>
     </table>
-  );
-}
-
-function IncidentList({ items, now }: { items: Incident[]; now: number }) {
-  if (!items.length) {
-    return <p className="muted">No incidents yet. Run a fault scenario to see one: <code>feedwatch replay samples/session --scenario scenarios/drill.json</code></p>;
-  }
-  return (
-    <ol className="incident-list">
-      {items.map((inc) => (
-        <li key={inc.id} className={`incident ${inc.status} ${inc.severity}`}>
-          <span className={`sev ${inc.severity}`} aria-label={inc.severity} />
-          <div className="body">
-            <div className="line">
-              <strong>{TYPE_LABEL[inc.type] ?? inc.type}</strong>
-              <span className="muted">{[inc.source, inc.symbol].filter(Boolean).join(" · ")}</span>
-              <span className={`state ${inc.status}`}>{inc.status === "open" ? "open" : "resolved"}</span>
-            </div>
-            <p>{inc.status === "open" ? inc.summary : String(inc.details.resolution ?? inc.summary)}</p>
-            <p className="muted small">
-              {inc.status === "open"
-                ? `Open for ${duration(inc.opened_at, null, now)}`
-                : `Lasted ${duration(inc.opened_at, inc.resolved_at, now)} · resolved ${ago(inc.resolved_at, now)}`}
-            </p>
-          </div>
-        </li>
-      ))}
-    </ol>
   );
 }

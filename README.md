@@ -60,6 +60,24 @@ rules must still produce exactly these two incidents.
 
 Every threshold, and why it's set where it is: [docs/detection-rules.md](docs/detection-rules.md).
 
+## The dashboard
+
+- **Overview:** feed health per exchange, a stablecoin peg board, whether the exchanges
+  agree on each price, the incident timeline, and a card per coin with its live price and
+  the last hour as a sparkline.
+- **Coin pages** (click any coin, e.g. `#/coin/BTC-USD`):
+  - live one-minute **candles** (TradingView lightweight-charts), the newest candle
+    building trade by trade;
+  - a switch between Coinbase and Kraken, with the other exchange drawn as a dashed line,
+    so a disagreement is visible at a glance;
+  - **incident markers** on the chart where something went wrong;
+  - each exchange's live price (and distance from $1 for stablecoins), every trade as it
+    happens, per-exchange stats, and the coin's incident history.
+
+Finished minutes come from TimescaleDB. The current minute and the trade list come from
+the API following Kafka directly, pushed to the browser twice a second over Server-Sent
+Events.
+
 ## Architecture
 
 ```mermaid
@@ -97,7 +115,7 @@ For development without Docker:
 
 ```bash
 make install   # .venv + dashboard packages
-make check     # ruff, mypy --strict, 54 unit tests, dashboard tests
+make check     # ruff, mypy --strict, 60 unit tests, dashboard tests
 docker compose up -d kafka db && make integration   # end-to-end through Kafka and PostgreSQL
 ```
 
@@ -121,9 +139,9 @@ src/feedwatch/
   detect/       the detection engine (plain Python) and its Kafka service
   metrics/      one-minute windows with Quix Streams
   store/        Kafka → TimescaleDB with idempotent upserts; schema.sql
-  api/          FastAPI: REST + Server-Sent Events, serves the dashboard
+  api/          FastAPI: REST + Server-Sent Events, a live Kafka view per coin, serves the dashboard
   replay/       recordings, Kraken history download, fault injection
-dashboard/      React + TypeScript (Vite), live over Server-Sent Events
+dashboard/      React + TypeScript (Vite): overview and coin pages with live candle charts
 scenarios/      fault scenarios: outage, dropped trades, price drift, depeg, latency, bad print
 samples/        a 5-minute live recording (10 Oct 2026) and the March 2023 USDC history
 tests/          unit tests, the real-data regression test, and an end-to-end Kafka test
@@ -132,9 +150,10 @@ docs/           architecture, data sources, detection rules, operations, ADRs
 
 ## Engineering notes
 
-- **Tests:** 54 unit tests (parsers on real captured messages; every rule with hand-built
-  event sequences; fault injection; windowed metrics), the March 2023 regression test, an
-  end-to-end test through real Kafka and PostgreSQL, and dashboard tests.
+- **Tests:** 60 unit tests (parsers on real captured messages; every rule with hand-built
+  event sequences; fault injection; windowed metrics; the live candle buffer), the March
+  2023 regression test, an end-to-end test through real Kafka and PostgreSQL, and
+  dashboard tests (formatting, candle merging).
 - **Checks:** `ruff`, `mypy --strict`, CI on every push, plus a Docker smoke test that
   replays the USDC depeg inside the built image.
 - **Delivery:** at-least-once everywhere, made safe by idempotent writes: incidents are
