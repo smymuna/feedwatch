@@ -84,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t feedwatch:ci .
-      - name: Smoke test: replay the March 2023 USDC depeg inside the image
+      - name: "Smoke test: replay the March 2023 USDC depeg inside the image"
         run: |
           docker run --rm feedwatch:ci backtest samples/history/kraken_USDCUSD_2023-03-10_2023-03-13.csv.gz \
             --symbol USDC-USD --quiet | tee out.txt
