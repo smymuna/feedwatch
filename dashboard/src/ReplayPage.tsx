@@ -145,7 +145,7 @@ export function ReplayPage() {
       </div>
 
       <div className="price-strip">
-        <div className="price-card"><span className="muted small">Replay time</span><span className="big num" style={{ fontSize: "1.05rem", overflowWrap: "anywhere" }}>{data ? fmt(cursor) : "–"}</span></div>
+        <div className="price-card"><span className="muted small">Replay time (UTC)</span><span className="big num" style={{ fontSize: "1.05rem" }}>{data ? fmt(cursor).replace(" UTC", "") : "–"}</span></div>
         <div className="price-card"><span className="muted small">USDC price</span><span className="big num">{last ? last.close.toFixed(4) : "–"}</span></div>
         <div className="price-card"><span className="muted small">Lowest so far</span><span className="big num">{Number.isFinite(low) ? low.toFixed(4) : "–"}</span></div>
         <div className="price-card"><span className="muted small">FeedWatch says</span>

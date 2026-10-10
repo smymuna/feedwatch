@@ -28,7 +28,7 @@ export function CoinCards({ coins }: { coins: CoinSummary[] | null }) {
               <span className="muted small">{c.name}</span>
               {worst && <span className={`dot ${worst}`} title={`${c.open_incidents.length} open incident(s)`} />}
             </div>
-            <div className="coin-price num">{main ? price(main.price) : "–"}</div>
+            <div className="coin-price num">{main ? price(main.price) : c.sparkline.length ? price(String(c.sparkline[c.sparkline.length - 1])) : "–"}</div>
             <div className="coin-card-bottom">
               <span className={`num small ${change == null ? "muted" : change >= 0 ? "ok-text" : "crit-text"}`}>
                 {change == null ? "no history yet" : `${pct(change, c.stablecoin ? 3 : 2)} 1 h`}
