@@ -1,0 +1,5 @@
+{
+  "name": "Coinbase data arrives late",
+  "description": "Every Coinbase message is delayed by 6 s for a minute and a half. Expect a high_latency warning.",
+  "faults": [{"kind": "delay", "source": "coinbase", "ms": 6000, "start_s": 30, "end_s": 120}]
+}

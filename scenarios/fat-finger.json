@@ -1,0 +1,5 @@
+{
+  "name": "A bad print",
+  "description": "One Kraken BTC-USD trade comes through 5 % away from the market. Expect an outlier_print incident.",
+  "faults": [{"kind": "spike", "source": "kraken", "symbol": "BTC-USD", "pct": 5, "start_s": 40, "end_s": 300}]
+}

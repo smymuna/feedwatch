@@ -1,0 +1,22 @@
+{
+  "name": "USDT depeg drill",
+  "description": "USDT trades 1.5 % below $1 on both exchanges for two minutes. Expect a depeg warning, resolving about two minutes after the price returns (the 60 s average has to clear, then stay within 0.3 % for a minute).",
+  "faults": [
+    {
+      "kind": "shift_price",
+      "source": "coinbase",
+      "symbol": "USDT-USD",
+      "pct": -1.5,
+      "start_s": 30,
+      "end_s": 150
+    },
+    {
+      "kind": "shift_price",
+      "source": "kraken",
+      "symbol": "USDT-USD",
+      "pct": -1.5,
+      "start_s": 30,
+      "end_s": 150
+    }
+  ]
+}

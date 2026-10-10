@@ -1,0 +1,12 @@
+{
+  "name": "Everything at once (demo)",
+  "description": "Six faults staggered over the 5-minute sample session, each opening and resolving within it: a bad print, dropped trades, one exchange's prices drifting, a confirmed USDT depeg, and a Kraken outage.",
+  "faults": [
+    {"kind": "spike", "source": "kraken", "symbol": "BTC-USD", "pct": 5, "start_s": 40, "end_s": 300},
+    {"kind": "drop_trades", "source": "coinbase", "symbol": "BTC-USD", "start_s": 30, "end_s": 50},
+    {"kind": "shift_price", "source": "kraken", "symbol": "ETH-USD", "pct": 1.2, "start_s": 60, "end_s": 120},
+    {"kind": "shift_price", "source": "coinbase", "symbol": "USDT-USD", "pct": -1.5, "start_s": 60, "end_s": 130},
+    {"kind": "shift_price", "source": "kraken", "symbol": "USDT-USD", "pct": -1.5, "start_s": 60, "end_s": 130},
+    {"kind": "silence", "source": "kraken", "start_s": 170, "end_s": 200}
+  ]
+}

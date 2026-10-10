@@ -1,0 +1,5 @@
+{
+  "name": "Coinbase drops trades",
+  "description": "BTC-USD trades from Coinbase are lost for 20 seconds while heartbeats keep arriving, so the connection looks healthy. Expect a trade_gap with the exact number of missing trades, found from trade ids and heartbeats.",
+  "faults": [{"kind": "drop_trades", "source": "coinbase", "symbol": "BTC-USD", "start_s": 30, "end_s": 50}]
+}

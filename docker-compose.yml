@@ -1,0 +1,97 @@
+# FeedWatch: the whole pipeline on one machine.
+#   docker compose up --build        then open http://localhost:8000
+# From the host, Kafka is on localhost:29092 and PostgreSQL on localhost:55432.
+name: feedwatch
+
+x-app: &app
+  build: .
+  image: feedwatch:local
+  restart: unless-stopped
+  environment:
+    FEEDWATCH_KAFKA_BOOTSTRAP: kafka:9092
+    FEEDWATCH_DATABASE_URL: postgresql://feedwatch:feedwatch@db:5432/feedwatch
+  depends_on:
+    kafka: { condition: service_healthy }
+    topics: { condition: service_completed_successfully }
+
+services:
+  kafka:
+    image: apache/kafka:4.1.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller          # KRaft: no ZooKeeper
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: -Xmx512m -Xms256m
+    ports: ["29092:29092"]
+    volumes: [kafka-data:/var/lib/kafka/data]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  db:
+    image: timescale/timescaledb:2.22.1-pg17
+    environment:
+      POSTGRES_USER: feedwatch
+      POSTGRES_PASSWORD: feedwatch
+      POSTGRES_DB: feedwatch
+    ports: ["55432:5432"]
+    volumes: [db-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feedwatch -d feedwatch"]
+      interval: 5s
+      retries: 30
+
+  topics:                     # creates the Kafka topics once, then exits
+    <<: *app
+    command: ["topics"]
+    restart: "no"
+    depends_on:
+      kafka: { condition: service_healthy }
+
+  ingest:
+    <<: *app
+    command: ["ingest"]
+
+  metrics:
+    <<: *app
+    command: ["metrics"]
+    volumes: [metrics-state:/app/state]
+
+  detect:
+    <<: *app
+    command: ["detect"]
+
+  store:
+    <<: *app
+    command: ["store"]
+    depends_on:
+      kafka: { condition: service_healthy }
+      topics: { condition: service_completed_successfully }
+      db: { condition: service_healthy }
+
+  api:
+    <<: *app
+    command: ["api", "--port", "8000"]
+    ports: ["8000:8000"]
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      retries: 10
+
+volumes:
+  kafka-data:
+  db-data:
+  metrics-state:

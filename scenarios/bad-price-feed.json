@@ -1,0 +1,5 @@
+{
+  "name": "One exchange's prices drift",
+  "description": "Kraken ETH-USD prices come through 1.2 % too high for two minutes. Expect a price_divergence incident (about 120 bps) after it persists for 10 s, resolving when prices agree again.",
+  "faults": [{"kind": "shift_price", "source": "kraken", "symbol": "ETH-USD", "pct": 1.2, "start_s": 60, "end_s": 180}]
+}

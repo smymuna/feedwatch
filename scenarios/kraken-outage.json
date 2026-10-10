@@ -1,0 +1,5 @@
+{
+  "name": "Kraken goes silent",
+  "description": "Every Kraken message is lost for 40 seconds, as in a network outage. Expect a critical feed_silent incident after 10 s that resolves when data returns, and a trade_gap for each Kraken symbol that traded meanwhile.",
+  "faults": [{"kind": "silence", "source": "kraken", "start_s": 60, "end_s": 100}]
+}

@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Lint, types and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests
+      - run: ruff format --check src tests
+      - run: mypy
+      - run: pytest -q   # includes the March 2023 USDC regression test
+
+  integration:
+    name: End to end (Kafka + TimescaleDB)
+    runs-on: ubuntu-latest
+    services:
+      kafka:
+        image: apache/kafka:4.1.0
+        ports: ["9092:9092"]
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
+          --health-interval 5s --health-timeout 10s --health-retries 30
+      db:
+        image: timescale/timescaledb:2.22.1-pg17
+        ports: ["55432:5432"]
+        env:
+          POSTGRES_USER: feedwatch
+          POSTGRES_PASSWORD: feedwatch
+          POSTGRES_DB: feedwatch
+        options: >-
+          --health-cmd "pg_isready -U feedwatch" --health-interval 5s --health-retries 30
+    env:
+      FEEDWATCH_KAFKA_BOOTSTRAP: localhost:9092
+      FEEDWATCH_DATABASE_URL: postgresql://feedwatch:feedwatch@localhost:55432/feedwatch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip }
+      - run: pip install -e ".[dev]"
+      - run: pytest -m integration -v
+
+  dashboard:
+    name: Dashboard
+    runs-on: ubuntu-latest
+    defaults:
+      run: { working-directory: dashboard }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: dashboard/package-lock.json }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t feedwatch:ci .
+      - name: Smoke test: replay the March 2023 USDC depeg inside the image
+        run: |
+          docker run --rm feedwatch:ci backtest samples/history/kraken_USDCUSD_2023-03-10_2023-03-13.csv.gz \
+            --symbol USDC-USD --quiet | tee out.txt
+          grep -q "2 incident(s), 0 still open" out.txt
