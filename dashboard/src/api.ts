@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { engine } from "./browser/engine";
+
+/** The browser edition (GitHub Pages) runs the pipeline in the page instead of calling the API. */
+export const BROWSER = import.meta.env.VITE_BROWSER === "1";
 
 export type Severity = "info" | "warning" | "critical";
 
@@ -51,7 +55,7 @@ export type StreamState = "connecting" | "live" | "reconnecting";
 
 /** Live snapshots over Server-Sent Events. EventSource reconnects by itself; we just
  *  report the state so the UI can say so honestly. */
-export function useSnapshot(): { snapshot: Snapshot | null; state: StreamState; receivedAt: number } {
+function useSnapshotServer(): { snapshot: Snapshot | null; state: StreamState; receivedAt: number } {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [state, setState] = useState<StreamState>("connecting");
   const [receivedAt, setReceivedAt] = useState(0);
@@ -68,8 +72,39 @@ export function useSnapshot(): { snapshot: Snapshot | null; state: StreamState; 
   return { snapshot, state, receivedAt };
 }
 
+function useSnapshotBrowser(): { snapshot: Snapshot | null; state: StreamState; receivedAt: number } {
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [state, setState] = useState<StreamState>("connecting");
+  const [receivedAt, setReceivedAt] = useState(0);
+  useEffect(() => {
+    engine.start();
+    const id = window.setInterval(() => {
+      setSnapshot(engine.snapshot());
+      setReceivedAt(Date.now());
+      setState(Object.values(engine.connected).some(Boolean) ? "live" : "reconnecting");
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return { snapshot, state, receivedAt };
+}
+
+export const useSnapshot = BROWSER ? useSnapshotBrowser : useSnapshotServer;
+
+function useIncidentsBrowser(everyMs = 2000): Incident[] {
+  const [items, setItems] = useState<Incident[]>([]);
+  useEffect(() => {
+    engine.start();
+    setItems(engine.incidentList());
+    const id = window.setInterval(() => setItems(engine.incidentList()), everyMs);
+    return () => window.clearInterval(id);
+  }, [everyMs]);
+  return items;
+}
+
+export const useIncidents = BROWSER ? useIncidentsBrowser : useIncidentsServer;
+
 /** Recent incidents (open and resolved), refreshed every few seconds. */
-export function useIncidents(everyMs = 4000): Incident[] {
+function useIncidentsServer(everyMs = 4000): Incident[] {
   const [items, setItems] = useState<Incident[]>([]);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => {

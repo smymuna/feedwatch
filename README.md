@@ -4,6 +4,7 @@
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Kafka](https://img.shields.io/badge/streaming-Apache%20Kafka-231f20)
 ![Quix Streams](https://img.shields.io/badge/stream%20processing-Quix%20Streams-0064ff)
+[![Pages](https://github.com/smymuna/feedwatch/actions/workflows/pages.yml/badge.svg)](https://smymuna.github.io/feedwatch/)
 ![TimescaleDB](https://img.shields.io/badge/storage-TimescaleDB-fdb515)
 
 **Real-time data quality monitoring for live market data feeds.**
@@ -14,6 +15,11 @@ trades go missing during a reconnect, one exchange prints a price far from every
 or a "stable" coin slips off its $1 peg. FeedWatch streams trades from **Coinbase** and
 **Kraken** through **Kafka**, checks them continuously, and raises an incident within
 seconds when the data can't be trusted.
+
+**Live demo: https://smymuna.github.io/feedwatch/** (browser edition: your browser connects
+straight to Coinbase and Kraken and runs the same detection rules in the page; open
+[the USDC 2023 replay](https://smymuna.github.io/feedwatch/#/replay) to watch it catch a real
+depeg). The full pipeline below runs locally with `make up`.
 
 > **It does not trade, place orders or give financial advice.** It only reads public
 > market data that exchanges broadcast to everyone, and judges its quality.
@@ -39,8 +45,8 @@ $ make usdc
 
 | UTC | FeedWatch | What happened |
 |---|---|---|
-| Fri 10 Mar, 22:02 | Early warning, −0.5 % | News spreads that Circle held $3.3B at SVB |
-| Sat 11 Mar, 03:14 | **Critical**, −2 % and worse (low: $0.879 one-minute average) | Peak of the depeg; lowest single trade $0.874 at 07:15 |
+| Fri 10 Mar, 22:02 | Early warning, −0.5 % | Markets react to SVB's failure that day; USDC's exposure is suspected but not yet confirmed |
+| Sat 11 Mar, 03:14 | **Critical**, −2 % and worse (low: $0.879 one-minute average) | 5 minutes after Circle confirms $3.3B of USDC's reserves are at SVB (about 03:09 UTC); lowest single trade $0.874 at 07:15 |
 | Sun 12 Mar, 22:26 | Steps down to warning | US authorities announce the SVB backstop (about 22:15 UTC) |
 | Mon 13 Mar, 13:53 | Resolved | USDC back within 0.3 % of $1 |
 

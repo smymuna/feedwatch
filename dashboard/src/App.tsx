@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { type Feed, type Incident, type SymbolHealth, useIncidents, useNow, useSnapshot } from "./api";
+import { BROWSER, type Feed, type Incident, type SymbolHealth, useIncidents, useNow, useSnapshot } from "./api";
 import { CoinPage } from "./CoinPage";
 import { useCoins } from "./coins";
 import { CoinCards, IncidentList } from "./components";
+import { ReplayPage } from "./ReplayPage";
 import { ago, gaugePosition, pct, pegLevel, price, rate } from "./format";
 
-/** Tiny hash router: #/ is the overview, #/coin/BTC-USD a coin page. */
+/** Tiny hash router: #/ is the overview, #/coin/BTC-USD a coin page, #/replay the 2023 replay. */
 function useRoute(): string | null {
   const read = () => {
+    if (window.location.hash === "#/replay") return "replay";
     const m = window.location.hash.match(/^#\/coin\/([A-Z0-9]+-[A-Z]+)$/);
     return m ? m[1] : null;
   };
@@ -41,7 +43,7 @@ export default function App() {
   const coin = useRoute();
   const coins = useCoins();
   useEffect(() => {
-    document.title = coin ? `${coin} · FeedWatch` : "FeedWatch · market data quality";
+    document.title = coin === "replay" ? "USDC 2023 replay · FeedWatch" : coin ? `${coin} · FeedWatch` : "FeedWatch · market data quality";
   }, [coin]);
 
   return (
@@ -59,12 +61,29 @@ export default function App() {
         </div>
       </header>
 
-      {coin ? (
+      {BROWSER && (
+        <aside className="edition">
+          <strong>Browser edition.</strong> This page connects straight from your browser to Coinbase and Kraken and runs
+          FeedWatch's detection rules here, live. The full system (Kafka, Quix Streams, TimescaleDB, FastAPI) is in{" "}
+          <a href="https://github.com/smymuna/feedwatch">the repository</a> and runs with one command.
+        </aside>
+      )}
+      {coin === "replay" ? (
+        <ReplayPage />
+      ) : coin ? (
         <CoinPage symbol={coin} now={now} />
       ) : !snapshot ? (
         <p className="empty">Waiting for the first snapshot from the API…</p>
       ) : (
         <main className="grid">
+          <a className="panel replay-card" href="#/replay">
+            <div>
+              <strong>Replay a real incident: the USDC depeg of March 2023</strong>
+              <p className="muted small">269,430 real trades through the same detector. Press play and watch FeedWatch raise and clear the alarm.</p>
+            </div>
+            <span className="replay-go">Open replay →</span>
+          </a>
+
           <section className="panel coins" aria-labelledby="coins-h">
             <h2 id="coins-h">Coins <small>live price, last hour · click a coin for its live chart and trades</small></h2>
             <CoinCards coins={coins} />

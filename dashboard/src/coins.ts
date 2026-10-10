@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Incident, SymbolHealth } from "./api";
+import { BROWSER, type Incident, type SymbolHealth } from "./api";
+import { coinSources, engine } from "./browser/engine";
 
 export interface LivePrice {
   price: string;
@@ -102,10 +103,43 @@ function usePolled<T>(url: string | null, everyMs: number): T | null {
   return data;
 }
 
-export const useCoins = () => usePolled<CoinSummary[]>("/api/coins", 5000);
-export const useCoin = (symbol: string) => usePolled<CoinDetail>(`/api/coins/${symbol}`, 10000);
-export const useStoredCandles = (symbol: string) =>
-  usePolled<{ stored: MinuteRow[]; live: LiveCandle[] }>(`/api/coins/${symbol}/candles?minutes=120`, 30000);
+/** Poll a value computed in the page (browser edition). */
+function useComputed<T>(compute: () => T | Promise<T>, everyMs: number, deps: unknown[]): T | null {
+  const [data, setData] = useState<T | null>(null);
+  useEffect(() => {
+    engine.start();
+    let alive = true;
+    setData(null);
+    const load = async () => {
+      const value = await compute();
+      if (alive) setData(value);
+    };
+    void load();
+    const id = window.setInterval(load, everyMs);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return data;
+}
+
+export const useCoins = BROWSER
+  ? () => {
+      useEffect(() => {
+        for (const symbol of Object.keys(coinSources())) void engine.loadHistory(symbol);
+      }, []);
+      return useComputed(() => engine.coins(), 3000, []);
+    }
+  : () => usePolled<CoinSummary[]>("/api/coins", 5000);
+export const useCoin = BROWSER
+  ? (symbol: string) => useComputed(() => engine.coinDetail(symbol), 2000, [symbol])
+  : (symbol: string) => usePolled<CoinDetail>(`/api/coins/${symbol}`, 10000);
+export const useStoredCandles = BROWSER
+  ? (symbol: string) => useComputed(async () => ({ stored: await engine.loadHistory(symbol), live: engine.liveCandles(symbol) }), 30000, [symbol])
+  : (symbol: string) =>
+      usePolled<{ stored: MinuteRow[]; live: LiveCandle[] }>(`/api/coins/${symbol}/candles?minutes=120`, 30000);
 
 export interface CoinStream {
   trades: LiveTrade[];
@@ -116,8 +150,34 @@ export interface CoinStream {
   connected: boolean;
 }
 
+function useCoinStreamBrowser(symbol: string, keepTrades = 80): CoinStream {
+  const [state, setState] = useState<CoinStream>({ trades: [], candles: [], prices: {}, health: null, live: false, connected: false });
+  useEffect(() => {
+    engine.start();
+    let seq = 0;
+    const update = () => {
+      const fresh = engine.tradesSince(symbol, seq);
+      if (fresh.length) seq = fresh[fresh.length - 1].seq;
+      setState((prev) => ({
+        trades: [...fresh.slice().reverse(), ...prev.trades].slice(0, keepTrades),
+        candles: engine.liveCandles(symbol),
+        prices: engine.prices(symbol),
+        health: engine.symbols(symbol),
+        live: Object.values(engine.connected).some(Boolean),
+        connected: true,
+      }));
+    };
+    update();
+    const id = window.setInterval(update, 500);
+    return () => window.clearInterval(id);
+  }, [symbol, keepTrades]);
+  return state;
+}
+
+export const useCoinStream = BROWSER ? useCoinStreamBrowser : useCoinStreamServer;
+
 /** Trades, forming candles and prices for one coin, pushed twice a second. */
-export function useCoinStream(symbol: string, keepTrades = 80): CoinStream {
+function useCoinStreamServer(symbol: string, keepTrades = 80): CoinStream {
   const [state, setState] = useState<CoinStream>({
     trades: [], candles: [], prices: {}, health: null, live: false, connected: false,
   });
